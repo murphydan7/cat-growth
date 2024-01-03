@@ -1,2 +1,2 @@
 # cat-growth
-Expected classification accuracy for categorical growth models example
+Expected Classification Accuracy for Categorical Growth Models example
