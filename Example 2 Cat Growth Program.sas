@@ -1,12 +1,16 @@
 dm 'log;clear;out;clear;'; /*clears log and output window*/
 
-LIBNAME OUT "C:\Users\dmurphy\Box\My Box Notes\ISPROUT\NCME\Paper\EMIP\Revision 2";
+%LET DIR=C:\tmp\git_cat_growth;
 
 PROC DATASETS KILL;
 QUIT;
 
-DATA GROWTH;
-	SET OUT.CATGROWTH_DATA;
+PROC IMPORT OUT= WORK.GROWTH 
+            DATAFILE= "&DIR.\CATGROWTH_DATA.csv" 
+            DBMS=CSV REPLACE;
+     GETNAMES=YES;
+     DATAROW=2; 
+	 GUESSINGROWS=MAX;
 RUN;
 
 TITLE 'Observed Growth Performance';
@@ -19,10 +23,18 @@ PROC FREQ DATA=GROWTH NOPRINT;
 	TABLE SS_FIRST*SS_LAST/OUT=JOINTDIST;
 RUN;
 
+PROC IMPORT OUT= WORK.RSSS1 
+            DATAFILE= "&DIR.\RSSS1.csv" 
+            DBMS=CSV REPLACE;
+     GETNAMES=YES;
+     DATAROW=2; 
+	 GUESSINGROWS=MAX;
+RUN;
+
 *Compute expected probability of classification into each category 
  given ability, cut scores, and measurement error on test 1;
 DATA CLASS_PROB1;
-	SET OUT.RSSS1;*Raw score to scale score table for first test including performance levels and cut scores;
+	SET RSSS1;*Raw score to scale score table for first test including performance levels and cut scores;
 	ARRAY CUTS(3) CUT1-CUT3;
 	ARRAY PLS(3) PL1-PL3;
 	DO I=1 TO 3;
@@ -35,14 +47,22 @@ DATA CLASS_PROB1;
 	DROP I;
 RUN;
 
+PROC IMPORT OUT= WORK.RSSS2 
+            DATAFILE= "&DIR.\RSSS2.csv" 
+            DBMS=CSV REPLACE;
+     GETNAMES=YES;
+     DATAROW=2; 
+	 GUESSINGROWS=MAX;
+RUN;
+
 *Compute expected probability of classification into each category 
  given ability, cut scores, and measurement error on test 2;
 DATA CLASS_PROB2;
-	SET OUT.RSSS2;*Raw score to scale score table for second test including performance levels and cut scores;
+	SET RSSS2;*Raw score to scale score table for second test including performance levels and cut scores;
 	ARRAY CUTS(3) CUT1-CUT3;
 	ARRAY PLS(3) PL1-PL3;
 	DO I=1 TO 3;
-	PLS(I)=CDF('NORMAL',((cuts(i)-theta)/csem));*converts z-score calculated from cut score, theta estimate, and CSEM to probability from the normal cumulative distribution function;
+	PLS(I)=CDF('NORMAL',((cuts(i)-theta_2)/csem_2));*converts z-score calculated from cut score, theta estimate, and CSEM to probability from the normal cumulative distribution function;
 	END;
 	PL1_2=PL1;
 	PL2_2=PL2-PL1;
@@ -54,8 +74,20 @@ RUN;
 *Full join the Test1 and Test2 datasets;
 PROC SQL;
 	CREATE TABLE T1_T2 AS
-	SELECT DISTINCT A.*,
-		            B.*
+	SELECT DISTINCT A.RAW_SCORE,
+			        A.SCALE_SCORE,
+					A.PERF_LEVEL,
+		            A.PL1_1,
+					A.PL2_1,
+					A.PL3_1,
+					A.PL4_1,
+					B.RAW_SCORE_2,
+					B.SCALE_SCORE_2,
+					B.PERF_LEVEL_2,
+		            B.PL1_2,
+					B.PL2_2,
+					B.PL3_2,
+					B.PL4_2
 	FROM CLASS_PROB1 A FULL JOIN CLASS_PROB2 B
 	ON RAW_SCORE_2;
 QUIT;
@@ -165,6 +197,7 @@ PROC SQL;
 	FROM GPROBS_GROWTH;
 QUIT;
 
+*Classification accuracy is selected into a macro variable named CA;
 PROC SQL NOPRINT;
    SELECT EXACC INTO :CA  
    FROM EXACC;
