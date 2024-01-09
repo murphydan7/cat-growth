@@ -1,6 +1,6 @@
 dm 'log;clear;out;clear;'; /*clears log and output window*/
 
-%LET DIR=C:\tmp\git_cat_growth;
+%LET DIR=C:\tmp\git_cat_growth; * This points to the local directory where the csv datafiles are located;
 
 PROC DATASETS KILL;
 QUIT;
@@ -100,7 +100,8 @@ DATA T1_T2;
 	GROWTH=COMPRESS(LEFT(PERF_LEVEL||'|'||PERF_LEVEL_2));
 	SELECT (GROWTH);
 		WHEN('Level1|Level2','Level1|Level3','Level1|Level4',
-			 'Level2|Level3','Level2|Level4','Level3|Level4',
+			 'Level2|Level3','Level2|Level4',
+			 'Level3|Level3','Level3|Level4',
 			 'Level4|Level4') GROWTH_CAT='Y';
 		OTHERWISE GROWTH_CAT='N';
 	END;
@@ -148,7 +149,43 @@ DATA T1_T2_POP;
 	END;
 run;
 
-*SuRUNmming the joint probabilities by growth categories gives each estimated true growth probability for each
+* This step outputs a dataset named ON_CUT2_AND_CUT3 that shows joint probabilities over the two tests 
+for an examinee scoring at the category 2 cut score on the first test and the category 3 cut score on the second test;
+PROC SQL;
+	CREATE TABLE ON_CUT2_AND_CUT3 AS
+	SELECT SCALE_SCORE,
+	       PERF_LEVEL,
+		   PL1_1 LABEL='Probability Level 1 Test 1',
+		   PL2_1 LABEL='Probability Level 2 Test 1',
+		   PL3_1 LABEL='Probability Level 3 Test 1',
+		   PL4_1 LABEL='Probability Level 4 Test 1',
+		   SCALE_SCORE_2,
+	       PERF_LEVEL_2,
+		   PL1_2 LABEL='Probability Level 1 Test 2',
+		   PL2_2 LABEL='Probability Level 2 Test 2',
+		   PL3_2 LABEL='Probability Level 3 Test 2',
+		   PL4_2 LABEL='Probability Level 4 Test 2',
+		   PL_11 LABEL='Probability Level 1 and Level 1',
+		   PL_12 LABEL='Probability Level 1 and Level 2',
+		   PL_13 LABEL='Probability Level 1 and Level 3',
+		   PL_14 LABEL='Probability Level 1 and Level 4',
+		   PL_21 LABEL='Probability Level 2 and Level 1',
+		   PL_22 LABEL='Probability Level 2 and Level 2',
+		   PL_23 LABEL='Probability Level 2 and Level 3',
+		   PL_24 LABEL='Probability Level 2 and Level 4',
+		   PL_31 LABEL='Probability Level 3 and Level 1',
+		   PL_32 LABEL='Probability Level 3 and Level 2',
+		   PL_33 LABEL='Probability Level 3 and Level 3',
+		   PL_34 LABEL='Probability Level 3 and Level 4',
+		   PL_41 LABEL='Probability Level 4 and Level 1',
+		   PL_42 LABEL='Probability Level 4 and Level 2',
+		   PL_43 LABEL='Probability Level 4 and Level 3',
+		   PL_44 LABEL='Probability Level 4 and Level 4'
+	FROM T1_T2_POP
+	WHERE SCALE_SCORE=1124 AND SCALE_SCORE_2=1364;
+QUIT;
+
+*Summing the joint probabilities by growth categories gives each estimated true growth probability for each
  of the sixteen performance level combinations over the two tests;
 PROC SQL;
 	CREATE TABLE PROBS AS
@@ -179,8 +216,8 @@ DATA GPROBS_GROWTH;
 	SET PROBS;
 	TRUE=100*ROUND(SUM(OF POPPL_11--POPPL_44),.001); *summing over all columns gives the true growth estimates for each growth category;
 	CAT_N=0;
-	CAT_Y=100*ROUND(SUM(POPPL_12,POPPL_13,POPPL_14,POPPL_23,POPPL_24,POPPL_34,POPPL_44),.001);*summing over the observed growth columns gives the expected growth estimates for each category;
-	CAT_N=100*ROUND(SUM(POPPL_11,POPPL_21,POPPL_22,POPPL_31,POPPL_32,POPPL_33,POPPL_41,POPPL_42,POPPL_43),.001);
+	CAT_Y=100*ROUND(SUM(POPPL_12,POPPL_13,POPPL_14,POPPL_23,POPPL_24,POPPL_33,POPPL_34,POPPL_44),.001);*summing over the observed growth columns gives the expected growth estimates for each category;
+	CAT_N=100*ROUND(SUM(POPPL_11,POPPL_21,POPPL_22,POPPL_31,POPPL_32,POPPL_41,POPPL_42,POPPL_43),.001);
 	IF GROWTH_CAT='Y' THEN CLACC=CAT_Y;
 	 ELSE CLACC=CAT_N;
 	KEEP GROWTH_CAT TRUE--CLACC;
@@ -203,7 +240,7 @@ PROC SQL NOPRINT;
    FROM EXACC;
 QUIT;
 
-*Set the categorical growth expected classification accuracy ratew with the marginal expected classification accuracy rates; 
+*Set the categorical growth expected classification accuracy rate with the marginal expected classification accuracy rates; 
 DATA CLASS_ACC;
 	SET GPROBS_GROWTH (KEEP=GROWTH_CAT TRUE CAT_N CAT_Y)
 	    EXACC (DROP=EXACC);
