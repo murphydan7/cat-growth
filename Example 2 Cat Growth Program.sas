@@ -35,7 +35,7 @@ RUN;
  given ability, cut scores, and measurement error on test 1;
 DATA CLASS_PROB1;
 	SET RSSS1;*Raw score to scale score table for first test including performance levels and cut scores;
-	ARRAY CUTS(3) CUT1-CUT3;
+	ARRAY CUTS(3) CUT1-CUT3;*There are three cut scores on test 1;
 	ARRAY PLS(3) PL1-PL3;
 	DO I=1 TO 3;
 	PLS(I)=CDF('NORMAL',((cuts(i)-theta)/csem));*converts z-score calculated from cut score, theta estimate, and CSEM to probability from the normal cumulative distribution function;
@@ -59,7 +59,7 @@ RUN;
  given ability, cut scores, and measurement error on test 2;
 DATA CLASS_PROB2;
 	SET RSSS2;*Raw score to scale score table for second test including performance levels and cut scores;
-	ARRAY CUTS(3) CUT1-CUT3;
+	ARRAY CUTS(3) CUT1-CUT3;*There are three cut scores on test 2;
 	ARRAY PLS(3) PL1-PL3;
 	DO I=1 TO 3;
 	PLS(I)=CDF('NORMAL',((cuts(i)-theta_2)/csem_2));*converts z-score calculated from cut score, theta estimate, and CSEM to probability from the normal cumulative distribution function;
@@ -94,7 +94,7 @@ QUIT;
 
 *This step computes joint probabilities representing the likelihood of being assigned to
  each of sixteen performance level combinations over the two tests given the joint distribution 
- of test scores across the two tests;
+ of test scores over the two tests;
 DATA T1_T2;
 	SET T1_T2;
 	GROWTH=COMPRESS(LEFT(PERF_LEVEL||'|'||PERF_LEVEL_2));
@@ -138,6 +138,7 @@ PROC SQL;
 	WHERE A.SCALE_SCORE=B.SS_FIRST and A.SCALE_SCORE_2=B.SS_LAST;
 QUIT;
 
+* This step weights the joint probabilities calculated previously by the population observed score joint distribution;
 DATA T1_T2_POP;
 	SET T1_T2_POP;
 	ARRAY PS(16) PL_11 PL_12 PL_13 PL_14 PL_21 PL_22 PL_23 PL_24 
@@ -149,10 +150,10 @@ DATA T1_T2_POP;
 	END;
 run;
 
-* This step outputs a dataset named ON_CUT2_AND_CUT3 that shows joint probabilities over the two tests 
+* This step outputs a dataset named AT_CUT2_AND_CUT3 that shows joint probabilities over the two tests 
 for an examinee scoring at the category 2 cut score on the first test and the category 3 cut score on the second test;
 PROC SQL;
-	CREATE TABLE ON_CUT2_AND_CUT3 AS
+	CREATE TABLE AT_CUT2_AND_CUT3 AS
 	SELECT SCALE_SCORE,
 	       PERF_LEVEL,
 		   PL1_1 LABEL='Probability Level 1 Test 1',
